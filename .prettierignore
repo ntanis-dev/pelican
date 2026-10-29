@@ -1,0 +1,5 @@
+node_modules/
+.pelican/
+.cache/
+package-lock.json
+.env.example

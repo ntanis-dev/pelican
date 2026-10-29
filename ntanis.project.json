@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 3,
+  "project": {
+    "id": "pelican",
+    "displayName": "Pelican"
+  },
+  "presentation": {
+    "status": "live",
+    "category": "Developer tools",
+    "tagline": "One agent runs other agents.",
+    "description": "An MCP server and CLI that let Claude Code, a script or another Codex agent run Codex agents: queued, kept off each other's files, with their questions and results returned to the orchestrator.",
+    "icon": "terminal",
+    "accent": "#8bbebb",
+    "downloadLabel": "Download",
+    "releaseNote": "",
+    "features": [
+      {
+        "title": "Agents that run agents",
+        "description": "Hand Pelican a brief and it runs a Codex agent. Parallel agents queue and take turns on the files they claim."
+      },
+      {
+        "title": "Questions come back",
+        "description": "An agent that needs a decision asks the orchestrator that spawned it, and its result returns checked against a schema."
+      },
+      {
+        "title": "Nothing left running",
+        "description": "Pelican starts when something needs it and exits when nothing does."
+      }
+    ],
+    "technologies": ["Node.js", "MCP"],
+    "gallery": []
+  },
+  "hosting": {
+    "modes": ["placeholder", "external"],
+    "components": []
+  },
+  "artifacts": [
+    {
+      "id": "source",
+      "publication": "manual",
+      "platform": "source",
+      "architecture": "any",
+      "formats": ["tgz"]
+    }
+  ],
+  "applications": [],
+  "capabilities": {
+    "identity": false,
+    "data": false,
+    "billing": false,
+    "realtime": false,
+    "releases": true
+  },
+  "secrets": []
+}
