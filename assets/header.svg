@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" width="1000" height="300" role="img" aria-labelledby="title desc">
+  <title id="title">Pelican</title>
+  <desc id="desc">A worried pelican with a pouch stuffed with little robot agents, one of them asking are we there yet, beside the PELICAN wordmark. Briefs out. Results back. Codex agents for any orchestrator.</desc>
+  <defs>
+    <radialGradient id="glow" cx="0.2" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#8bbebb" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#8bbebb" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="ripple" gradientUnits="userSpaceOnUse" x1="20" x2="420">
+      <stop offset="0" stop-color="#8bbebb" stop-opacity="0.65" />
+      <stop offset="1" stop-color="#8bbebb" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="deep" gradientUnits="userSpaceOnUse" x1="20" x2="420">
+      <stop offset="0" stop-color="#121519" stop-opacity="0.82" />
+      <stop offset="1" stop-color="#121519" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="frame"><rect width="1000" height="300" rx="16" /></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1000" height="300" fill="#121519" />
+    <rect width="1000" height="300" fill="url(#glow)" />
+    <g transform="translate(40 58) scale(0.96)">
+      
+  <path fill="#a9d1cd" d="M24 126 C 44 112 82 96 134 98 C 184 100 214 122 212 150 C 210 172 166 184 120 184 C 70 184 34 162 24 126 Z" />
+  <path fill="#8bbebb" d="M40 152 C 70 174 150 180 206 160 C 204 176 166 184 120 184 C 80 184 50 170 40 152 Z" />
+  <path fill="#8bbebb" d="M60 128 C 100 110 154 116 190 142 C 150 154 100 154 60 128 Z" />
+  <path fill="none" stroke="#a9d1cd" stroke-linecap="round" stroke-width="2.5" opacity="0.7" d="M78 132 C 108 126 138 130 164 142" />
+  <path fill="none" stroke="#a9d1cd" stroke-linecap="round" stroke-width="26" d="M186 126 C 214 112 214 86 198 72 C 186 60 196 46 206 38" />
+  <circle cx="207" cy="34" r="19" fill="#a9d1cd" />
+  <path fill="none" stroke="#a9d1cd" stroke-linecap="round" stroke-width="5" d="M193 21 q -12 -2 -17 7" />
+  <path fill="none" stroke="#8bbebb" stroke-linecap="round" stroke-width="5" d="M193 30 q -11 0 -15 9" />
+      
+  <g transform="translate(260 76) rotate(-8) scale(0.9)">
+    <path d="M0 -14 V -21" stroke="#7e858e" stroke-width="2" />
+    <circle cx="0" cy="-23" r="3" fill="#cf8b82" />
+    <rect x="-17" y="-14" width="34" height="26" rx="7" fill="#bba5c6" />
+    <rect x="-12" y="-9" width="24" height="14" rx="4" fill="#121519" />
+    <circle cx="-5" cy="-2" r="2.6" fill="#92ae99" />
+    <circle cx="5" cy="-2" r="2.6" fill="#92ae99" />
+    <path d="M-3 4 H3" stroke="#92ae99" stroke-width="1.6" stroke-linecap="round" />
+  </g>
+      
+  <g transform="translate(276 102) rotate(7) scale(0.9)">
+    <path d="M0 -14 V -21" stroke="#7e858e" stroke-width="2" />
+    <circle cx="0" cy="-23" r="3" fill="#cf8b82" />
+    <rect x="-17" y="-14" width="34" height="26" rx="7" fill="#a3b6ca" />
+    <rect x="-12" y="-9" width="24" height="14" rx="4" fill="#121519" />
+    <circle cx="-5" cy="-2" r="2.6" fill="#92ae99" />
+    <circle cx="5" cy="-2" r="2.6" fill="#92ae99" />
+    <path d="M-3 4 H3" stroke="#92ae99" stroke-width="1.6" stroke-linecap="round" />
+  </g>
+      
+  <g transform="translate(290 78) rotate(-4) scale(0.8)">
+    <path d="M0 -14 V -21" stroke="#7e858e" stroke-width="2" />
+    <circle cx="0" cy="-23" r="3" fill="#cf8b82" />
+    <rect x="-17" y="-14" width="34" height="26" rx="7" fill="#8bbebb" />
+    <rect x="-12" y="-9" width="24" height="14" rx="4" fill="#121519" />
+    <circle cx="-5" cy="-2" r="2.6" fill="#92ae99" />
+    <circle cx="5" cy="-2" r="2.6" fill="#92ae99" />
+    <path d="M-3 4 H3" stroke="#92ae99" stroke-width="1.6" stroke-linecap="round" />
+  </g>
+      <path fill="#e4c9a0" fill-opacity="0.42" stroke="#b58f63" stroke-linejoin="round" stroke-width="1.5" d="M218 44 L 324 57 C 344 168 216 178 218 44 Z" />
+      
+  <path fill="#d7b58b" stroke="#b58f63" stroke-linejoin="round" stroke-width="1.5" d="M216 23 C 256 25 298 40 325 57 L 216 45 Z" />
+  <circle cx="324" cy="57" r="3.2" fill="#b58f63" />
+      
+  <circle cx="214" cy="30" r="7.5" fill="#f4f5f7" stroke="#0b0d10" stroke-width="1.5" />
+  <circle cx="216" cy="34" r="3.2" fill="#0b0d10" />
+      <path d="M204 19 L 224 25" stroke="#0b0d10" stroke-width="2.6" stroke-linecap="round" />
+      <path fill="#a3b6ca" d="M194 14 q -5 8 0 10 q 5 -2 0 -10 Z" />
+      <g>
+        <rect x="236" y="-16" width="112" height="24" rx="8" fill="#1b2027" stroke="#343a43" />
+        <path d="M262 8 l5 10 l5 -10" fill="#1b2027" stroke="#343a43" stroke-linejoin="round" />
+        <path d="M262.5 7.2 h8" stroke="#1b2027" stroke-width="2" />
+        <text x="292" y="0" text-anchor="middle" font-family="ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="9.5" fill="#d6d8dc">are we there yet?</text>
+      </g>
+    </g>
+  <path fill="url(#deep)" d="M0 214 q 15 -7 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 L 420 300 L 0 300 Z" />
+  <g fill="none" stroke="url(#ripple)" stroke-linecap="round" stroke-width="2.5">
+    <path d="M20 214 q 15 -7 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0" />
+    <path opacity="0.6" d="M50 236 q 15 -7 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0" />
+    <path opacity="0.35" d="M14 258 q 15 -7 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0 t 30 0" />
+  </g>
+  </g>
+  <rect x="0.75" y="0.75" width="998.5" height="298.5" rx="15.5" fill="none" stroke="#343a43" stroke-width="1.5" />
+  <text x="424" y="128" font-family="ui-rounded, 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="84" font-weight="700" fill="#a9d1cd" textLength="470" lengthAdjust="spacing">PELICAN</text>
+  <g font-family="ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" xml:space="preserve">
+    <text x="426" y="182" font-size="22" font-weight="700" fill="#8bbebb">Briefs out. Results back.</text>
+    <text x="426" y="214" font-size="15" fill="#7e858e">Codex agents for any orchestrator.</text>
+    <text x="426" y="236" font-size="15" fill="#7e858e">Queued, watched, on the record.</text>
+  </g>
+</svg>
