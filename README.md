@@ -13,7 +13,7 @@ own and no web page. A person sets it up once and, if they like, watches.
 ```text
       An orchestrating agent (Claude Code, a script, another Codex)
                │              ▲
-         briefs │              │ questions, results
+        briefs │              │ questions, results
                ▼              │
       ┌──────────────────────────────────┐
       │ Pelican                          │
