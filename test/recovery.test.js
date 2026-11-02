@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { harness, until } from "./helpers.js";
+import { Fleet } from "../src/fleet.js";
+import { FakeWorker, harness, until } from "./helpers.js";
 
 const running = (o, id) => until(() => o.get(id).status === "running");
 
@@ -116,4 +117,38 @@ test("a question Codex settles itself closes instead of waiting for its owner", 
     params: { threadId: o.get(job.id).threadId, requestId: 99 },
   });
   assert.equal(o.get(job.id).status, "running");
+});
+
+test("a turn that completed just before a restart is settled as completed", async (t) => {
+  const { o, spec, workers, as, store, config } = await harness(t);
+  const lead = as("lead");
+  const done = await lead.spawn(spec("Done"));
+  const owes = await lead.spawn(
+    spec("Owes", { resultSchema: { type: "object" } }),
+  );
+  const cut = await lead.spawn(spec("Cut"));
+  for (const job of [done, owes, cut]) await running(o, job.id);
+  // The service dies after Codex completed two turns, before Pelican settled
+  // them: the journal has their ends, the jobs still say running.
+  for (const job of [done, owes])
+    store.event(job.id, "turn/completed", {
+      turn: { id: o.get(job.id).turnId, status: "completed" },
+    });
+  const restarted = new Fleet({
+    store,
+    config,
+    workerFactory: (job) => new FakeWorker(job),
+  });
+  assert.equal(restarted.get(done.id).status, "completed");
+  assert.equal(restarted.get(done.id).error, null);
+  assert.equal(
+    store.events({ jobId: done.id, types: ["job.finished"] }).at(-1).data
+      .recovered,
+    true,
+  );
+  // One that owes a result it never gave, and one still working, are
+  // interrupted as before.
+  assert.equal(restarted.get(owes.id).status, "interrupted");
+  assert.equal(restarted.get(cut.id).status, "interrupted");
+  assert.equal(workers.length, 3);
 });

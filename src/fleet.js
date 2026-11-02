@@ -259,14 +259,18 @@ export class Fleet extends EventEmitter {
     this.closing = false;
     this.scheduled = false;
     // A restart interrupts whatever was running. Its owner decides what to
-    // resume; nothing is replayed implicitly.
+    // resume; nothing is replayed implicitly. A turn Codex completed before
+    // the service stopped, while Pelican was still closing its worker, is
+    // settled as completed from the journal.
     for (const job of this.jobs.values())
       if (activeStates.has(job.status) || job.restartPending) {
-        job.status = "interrupted";
+        const done = this.completedTurn(job);
+        job.status = done ? "completed" : "interrupted";
         job.pid = null;
         job.turnId = null;
-        job.error =
-          "Pelican restarted while this agent was working. Its changes so far are in the workspace.";
+        job.error = done
+          ? null
+          : "Pelican restarted while this agent was working. Its changes so far are in the workspace.";
         if (job.pending.length)
           this.emitEvent(job.id, "questions.expired", {
             ids: job.pending.map((q) => q.id),
@@ -274,8 +278,31 @@ export class Fleet extends EventEmitter {
         job.pending = [];
         job.finishedAt = stamp();
         delete job.restartPending;
-        this.save(job, "job.recovered", { by: pelican });
+        if (done)
+          this.save(job, "job.finished", {
+            by: pelican,
+            recovered: true,
+            ...(job.followups.length
+              ? { followupsWaiting: job.followups.length }
+              : {}),
+          });
+        else this.save(job, "job.recovered", { by: pelican });
       }
+  }
+  // Whether the journal shows the agent's current turn completed, with a valid
+  // result when it owes one.
+  completedTurn(job) {
+    if (!job.turnId) return false;
+    const [ended] = this.store.events({
+      jobId: job.id,
+      types: ["turn/completed"],
+      last: 1,
+    });
+    return (
+      ended?.data?.turn?.id === job.turnId &&
+      ended.data.turn.status === "completed" &&
+      (!job.resultSchema || job.resultValid)
+    );
   }
   emitEvent(jobId, type, data) {
     const event = this.store.event(jobId, type, safe(data));
