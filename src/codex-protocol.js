@@ -87,6 +87,7 @@ const notifications = {
   "item/completed": ["threadId", "item"],
   "turn/plan/updated": ["plan"],
   "thread/tokenUsage/updated": ["tokenUsage"],
+  "serverRequest/resolved": ["requestId"],
   error: ["error", "willRetry"],
   "account/login/completed": ["loginId", "success", "error"],
 };

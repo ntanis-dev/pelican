@@ -739,6 +739,8 @@ Do not change global Codex settings or read unrelated credentials. Never include
     } else if (method === "thread/tokenUsage/updated") {
       job.usage = params.tokenUsage;
       this.save(job);
+    } else if (method === "serverRequest/resolved") {
+      this.settled(job, params.requestId);
     } else if (method === "turn/completed") {
       if (job.turnId && params.turn.id !== job.turnId) return;
       const status = params.turn.status;
@@ -771,6 +773,35 @@ Do not change global Codex settings or read unrelated credentials. Never include
         httpStatus: throttledStatus(params.error.codexErrorInfo),
       });
     }
+  }
+  // Codex settled a request itself (its turn moved on, or the script cell that
+  // called the tool ended), so an answer could no longer reach the agent: the
+  // question closes instead of waiting for its owner.
+  settled(job, requestId) {
+    const gone = job.pending.filter(
+      (q) => String(q.rpcId) === String(requestId),
+    );
+    if (!gone.length) return;
+    job.pending = job.pending.filter((q) => !gone.includes(q));
+    for (const q of gone) {
+      const saved = this.store.workRecord("agent-request", q.id);
+      if (saved)
+        this.store.saveWork("agent-request", {
+          ...saved,
+          settledAt: stamp(),
+          settledBy: "codex",
+        });
+    }
+    if (!job.pending.length) {
+      job.workingWithQuestion = false;
+      if (job.status === "waiting") job.status = "running";
+    }
+    this.save(job);
+    this.emitEvent(job.id, "questions.expired", {
+      ids: gone.map((q) => q.id),
+      reason:
+        "Codex settled the request itself; an answer can no longer reach the agent.",
+    });
   }
   async requestFromWorker(job, runtime, request) {
     const { id, method, params = {} } = request;

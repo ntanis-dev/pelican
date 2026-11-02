@@ -50,7 +50,7 @@ function text(event) {
     case "message.sent":
       return `Message from ${d.from} (${d.mode}, ${d.delivery}): ${clip(d.text)}`;
     case "questions.expired":
-      return `${d.ids?.length ?? 0} open question(s) expired`;
+      return `${d.ids?.length ?? 0} open question(s) expired${d.reason ? `: ${d.reason}` : ""}`;
     case "warning":
     case "scheduler.error":
       return `Warning: ${clip(d.message, 600)}`;
