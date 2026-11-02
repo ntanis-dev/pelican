@@ -107,6 +107,15 @@ const overloadDelayMs = (config, attempt) =>
     10 * 60000,
     (config.overloadRetryBaseMs ?? 30000) * 2 ** (attempt - 1),
   );
+// The account's Codex usage, or its rate limit, is spent. The agent waits for
+// the limit to reset when that is at most six hours away (the short window),
+// and continues a minute after; three waits in a row at most. A longer limit
+// (the weekly one) fails the agent, saying when it resets.
+const usageLimited = (info) =>
+  ["usageLimitExceeded", "rateLimitExceeded"].includes(info) ||
+  info?.responseTooManyFailedAttempts?.httpStatusCode === 429;
+export const limitWaitMs = 6 * 3600000;
+export const limitWaits = 3;
 const stamp = () => new Date().toISOString();
 const failure = (statusCode, message) =>
   Object.assign(new Error(message), { statusCode });
@@ -189,8 +198,11 @@ function upgrade(job) {
 // results. Whoever spawns an agent owns it; Pelican has no orchestrator of
 // its own.
 export class Fleet extends EventEmitter {
-  constructor({ store, config, workerFactory }) {
+  // usage reads the account's usage limits (CodexAccount.usage), for when a
+  // usage limit resets.
+  constructor({ store, config, workerFactory, usage }) {
     super();
+    this.usage = usage ?? null;
     this.eventWaiters = new EventWaiters(this);
     this.store = store;
     this.config = config;
@@ -505,6 +517,19 @@ export class Fleet extends EventEmitter {
   }
   tick() {
     if (this.settings.paused || this.closing) return;
+    // Agents waiting out a pause (capacity, a usage limit) start when it
+    // ends, after a restart too.
+    const later = [...this.jobs.values()]
+      .filter((j) => j.status === "queued" && j.notBefore > Date.now())
+      .map((j) => j.notBefore);
+    clearTimeout(this.wake);
+    if (later.length) {
+      this.wake = setTimeout(
+        () => this.tick(),
+        Math.min(...later) - Date.now() + 50,
+      );
+      this.wake.unref();
+    }
     const waiting = [...this.jobs.values()]
       .filter((j) => j.status === "queued" && !(j.notBefore > Date.now()))
       .sort(
@@ -744,8 +769,11 @@ Do not change global Codex settings or read unrelated credentials. Never include
     } else if (method === "turn/completed") {
       if (job.turnId && params.turn.id !== job.turnId) return;
       const status = params.turn.status;
-      if (status === "failed")
-        runtime.transient = transientCause(params.turn.error?.codexErrorInfo);
+      if (status === "failed") {
+        const info = params.turn.error?.codexErrorInfo;
+        runtime.transient = transientCause(info);
+        runtime.limited ||= usageLimited(info);
+      }
       void this.finish(
         job,
         runtime,
@@ -760,6 +788,7 @@ Do not change global Codex settings or read unrelated credentials. Never include
       job.error = safeText(
         params.error?.message ?? params.message ?? "Codex reported an error",
       );
+      runtime.limited ||= usageLimited(params.error?.codexErrorInfo);
       this.save(job);
     } else if (
       method === "error" &&
@@ -773,6 +802,21 @@ Do not change global Codex settings or read unrelated credentials. Never include
         httpStatus: throttledStatus(params.error.codexErrorInfo),
       });
     }
+  }
+  // When the spent usage limit resets: the latest reset among the windows used
+  // up, from a fresh reading of the account's limits; null when unknown.
+  async limitResetsAt() {
+    if (!this.usage) return null;
+    const usage = await Promise.race([
+      this.usage().catch(() => null),
+      new Promise((done) => setTimeout(done, 10000, null).unref()),
+    ]);
+    const spent = (usage?.limits ?? [])
+      .flatMap((limit) => limit.windows ?? [])
+      .filter((w) => w.usedPercent >= 100 && w.resetsAt)
+      .map((w) => w.resetsAt)
+      .sort();
+    return spent.at(-1) ?? null;
   }
   // Codex settled a request itself (its turn moved on, or the script cell that
   // called the tool ended), so an answer could no longer reach the agent: the
@@ -1244,6 +1288,42 @@ Do not change global Codex settings or read unrelated credentials. Never include
       return;
     }
     const expired = job.pending.map((q) => q.id);
+    if (status === "failed" && runtime.limited && !this.closing) {
+      const resetsAt = await this.limitResetsAt();
+      const waitMs = resetsAt
+        ? Date.parse(resetsAt) - Date.now() + 60000
+        : null;
+      const attempt = (job.limitWaits ?? 0) + 1;
+      if (waitMs !== null && waitMs <= limitWaitMs && attempt <= limitWaits) {
+        Object.assign(job, {
+          status: "queued",
+          queuedAt: stamp(),
+          notBefore: Date.now() + Math.max(0, waitMs),
+          limitWaits: attempt,
+          pendingPrompt:
+            "Pelican:\nYour turn stopped at the Codex usage limit, which has reset since. Continue the assignment where you left off: inspect your previous work first and do not redo finished steps.",
+          error: null,
+          pid: null,
+          turnId: null,
+          currentActivity: "",
+          workingWithQuestion: false,
+          pending: [],
+        });
+        this.active.delete(job.id);
+        this.save(job, "job.limited", {
+          reason: safeText(error || "Codex usage limit reached"),
+          resetsAt,
+          attempt,
+          of: limitWaits,
+          retryInMs: Math.max(0, waitMs),
+        });
+        if (expired.length)
+          this.emitEvent(job.id, "questions.expired", { ids: expired });
+        this.schedule();
+        return;
+      }
+      error = `${error || "Codex usage limit reached."}${resetsAt ? ` The limit resets at ${resetsAt}; resume the agent then.` : ""}`;
+    }
     // A turn the model service failed for capacity continues the same
     // conversation after a pause; a run waiting on the agent keeps waiting.
     if (
@@ -1279,7 +1359,7 @@ Do not change global Codex settings or read unrelated credentials. Never include
       setTimeout(() => this.tick(), delay + 50).unref();
       return;
     }
-    if (status === "completed") job.overloadRetries = 0;
+    if (status === "completed") job.overloadRetries = job.limitWaits = 0;
     Object.assign(job, {
       status,
       error: error ? safeText(error) : null,

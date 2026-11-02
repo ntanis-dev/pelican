@@ -35,8 +35,12 @@ if (!lease.acquired) {
   process.exit(lease.responsive ? 0 : 1);
 }
 installLogging(config.dataDir);
-const workspaces = await Workspaces.open({ config });
 const account = new CodexAccount({ config });
+// Agents stopped by a usage limit wait for it to reset, read from here.
+const workspaces = await Workspaces.open({
+  config,
+  usage: () => account.usage({ refresh: true }),
+});
 let maintaining;
 // Every 15 minutes, and once at the start: the service may not live that long.
 function maintain() {

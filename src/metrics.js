@@ -19,6 +19,7 @@ const endTypes = [
   "job.retrying",
   "job.restarting",
   "job.overloaded",
+  "job.limited",
 ];
 const lifecycle = [startType, ...endTypes];
 // An agent reached a done status.

@@ -485,6 +485,7 @@ const tailTone = {
   "job.retrying": "warn",
   "job.throttled": "warn",
   "job.overloaded": "warn",
+  "job.limited": "warn",
   "job.restarting": "warn",
   "job.started": "muted",
   "job.cancelled": "muted",
@@ -828,6 +829,7 @@ export const watchTypes = new Set([
   "job.cancelled",
   "job.restarting",
   "job.overloaded",
+  "job.limited",
   "job.throttled",
   "job.recovered",
   "run.finished",
@@ -852,6 +854,7 @@ function watchMark(entry, p) {
       return [g.square, "muted"];
     case "job.restarting":
     case "job.overloaded":
+    case "job.limited":
     case "job.throttled":
       return [g.diamond, "warn"];
     case "job.recovered":

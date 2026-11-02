@@ -190,6 +190,7 @@ export function eventIcon(event, g) {
       return [g.closed, "accent"];
     case "job.restarting":
     case "job.overloaded":
+    case "job.limited":
     case "job.throttled":
       return [g.closed, "warn"];
     case "job.owner":

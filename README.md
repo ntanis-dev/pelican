@@ -216,6 +216,9 @@ coloured at a terminal and plain text when piped.
   for its owner, and directing another's agent takes an explicit takeover.
 - **There are no budgets.** Agents run until their work ends or someone stops
   one.
+- **Usage limits pause agents.** An agent stopped by the account's Codex usage
+  limit waits for the limit to reset when that is at most six hours away, then
+  continues; a longer one fails it, saying when the limit resets.
 - **Briefs are checked before they queue.** The model (a full id or a short
   name such as `sol`), the effort and the speed must be ones the Codex account
   offers. `speed: "fast"` runs an agent on the model's Fast tier, at higher

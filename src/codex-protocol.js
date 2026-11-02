@@ -139,7 +139,11 @@ const enums = {
   AskForApproval: ["on-request"],
   ApprovalsReviewer: ["auto_review"],
   TurnStatus: ["completed", "interrupted", "failed"],
-  CodexErrorInfo: ["serverOverloaded"],
+  CodexErrorInfo: [
+    "serverOverloaded",
+    "usageLimitExceeded",
+    "rateLimitExceeded",
+  ],
   MessagePhase: ["final_answer"],
   PermissionGrantScope: ["turn"],
   CommandExecutionApprovalDecision: [
@@ -171,7 +175,10 @@ const variants = {
 };
 
 // Object variants of CodexErrorInfo, keyed by their one property.
-const errorVariants = { responseStreamDisconnected: ["httpStatusCode"] };
+const errorVariants = {
+  responseStreamDisconnected: ["httpStatusCode"],
+  responseTooManyFailedAttempts: ["httpStatusCode"],
+};
 
 export const contract = {
   requests,

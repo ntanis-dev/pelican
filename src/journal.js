@@ -23,6 +23,8 @@ function text(event) {
       return `The model service is throttling it (HTTP ${d.httpStatus}); Codex retries: ${clip(d.reason, 200)}`;
     case "job.overloaded":
       return `The model service refused the turn (${clip(d.reason, 300)}); Pelican continues it in ${Math.round((d.retryInMs ?? 0) / 1000)} s (try ${d.attempt} of ${d.of})`;
+    case "job.limited":
+      return `The Codex usage limit stopped the turn (${clip(d.reason, 300)}); Pelican continues it after the reset at ${d.resetsAt} (wait ${d.attempt} of ${d.of})`;
     case "job.restarting":
       return `Codex stopped while starting (${clip(d.reason, 600)}); Pelican starts it once more`;
     case "job.started":

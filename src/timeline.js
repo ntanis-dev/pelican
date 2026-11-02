@@ -49,6 +49,7 @@ export const ownedTypes = [
   "job.finished",
   "job.restarting",
   "job.overloaded",
+  "job.limited",
   "job.throttled",
   "job.recovered",
 ];
@@ -137,6 +138,11 @@ function words(event, workspace) {
     case "job.overloaded":
       return [
         `${agent} stopped by the model service; Pelican continues it in ${Math.round((d.retryInMs ?? 0) / 1000)} s (try ${d.attempt} of ${d.of})`,
+        clip(d.reason, 300),
+      ];
+    case "job.limited":
+      return [
+        `${agent} stopped at the Codex usage limit; Pelican continues it after the reset at ${d.resetsAt} (wait ${d.attempt} of ${d.of})`,
         clip(d.reason, 300),
       ];
     case "job.throttled":

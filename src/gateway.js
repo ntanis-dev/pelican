@@ -42,6 +42,7 @@ export const feedTypes = [
   "job.retrying",
   "job.restarting",
   "job.overloaded",
+  "job.limited",
   "job.throttled",
   "job.recovered",
   "job.owner",

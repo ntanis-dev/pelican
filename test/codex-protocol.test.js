@@ -91,8 +91,12 @@ test("the protocol check passes a schema that meets the contract and names each 
     (v) => v.properties.method.enum[0] !== "item/tool/call",
   );
   const types = broken["v2.json"].definitions;
-  types.CodexErrorInfo.anyOf[0].enum = ["other"];
-  types.CodexErrorInfo.anyOf.pop();
+  const [codes, ...objects] = types.CodexErrorInfo.anyOf;
+  codes.enum = codes.enum.filter((code) => code !== "serverOverloaded");
+  types.CodexErrorInfo.anyOf = [
+    codes,
+    ...objects.filter((v) => !v.properties.responseStreamDisconnected),
+  ];
   delete types.ThreadItem.oneOf.find(
     (v) => v.properties.type.enum[0] === "agentMessage",
   ).properties.phase;
