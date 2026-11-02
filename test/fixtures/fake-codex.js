@@ -1,11 +1,15 @@
 import { createInterface } from "node:readline";
 import { once } from "node:events";
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\n");
+let initialized;
 createInterface({ input: process.stdin }).on("line", async (line) => {
   const request = JSON.parse(line);
   if (!request.method || request.id === undefined) return;
   const { id, method } = request;
-  if (method === "initialize") send({ id, result: { userAgent: "fake" } });
+  if (method === "initialize") {
+    initialized = request.params;
+    send({ id, result: { userAgent: "fake" } });
+  } else if (method === "test/initialize") send({ id, result: initialized });
   else if (method === "thread/start" || method === "thread/resume")
     send({
       id,

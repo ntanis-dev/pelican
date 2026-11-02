@@ -118,6 +118,7 @@ const briefOptions = {
   "read-only": { type: "boolean" },
   model: { type: "string" },
   effort: { type: "string" },
+  speed: { type: "string" },
   "result-schema": { type: "string" },
   "depends-on": { type: "string", multiple: true },
   priority: { type: "string" },
@@ -135,6 +136,7 @@ function brief(values, base = {}) {
     spec.resources = [...words(values.resources), ...words(values.resource)];
   if (values.model) spec.model = values.model;
   if (values.effort) spec.effort = values.effort;
+  if (values.speed) spec.speed = values.speed;
   if (values["result-schema"] !== undefined)
     spec.resultSchema = jsonValue(values["result-schema"], "--result-schema");
   if (values["depends-on"]) spec.dependsOn = words(values["depends-on"]);
@@ -373,7 +375,7 @@ command("settings", {
 command("spawn", {
   group: "Agents",
   usage:
-    "pelican spawn [@brief.json] --prompt <text>|--prompt-file <file> [--name n] [--resource path]... [--read-only] [--model m] [--effort e] [--result-schema @schema.json] [--depends-on id]... [--priority n] [--cwd dir] [--wait [--timeout s]]",
+    "pelican spawn [@brief.json] --prompt <text>|--prompt-file <file> [--name n] [--resource path]... [--read-only] [--model m] [--effort e] [--speed standard|fast] [--result-schema @schema.json] [--depends-on id]... [--priority n] [--cwd dir] [--wait [--timeout s]]",
   summary: "Start an agent. It returns at once; --wait waits for its result.",
   example:
     'pelican spawn --as lead --name "Fix login test" --prompt-file brief.md --resource test/login.test.js --result-schema @result.json',
@@ -546,7 +548,7 @@ command("message", {
 command("resume", {
   group: "Agents",
   usage:
-    "pelican resume <id> [--prompt text | --prompt-file f] [--model m] [--effort e] [--takeover]",
+    "pelican resume <id> [--prompt text | --prompt-file f] [--model m] [--effort e] [--speed standard|fast] [--takeover]",
   summary:
     "Give a finished agent its next assignment in the same conversation.",
   example:
@@ -556,6 +558,7 @@ command("resume", {
     "prompt-file": { type: "string" },
     model: { type: "string" },
     effort: { type: "string" },
+    speed: { type: "string" },
     takeover: { type: "boolean" },
   },
   async run(ctx) {
@@ -566,6 +569,7 @@ command("resume", {
       ...(text !== undefined ? { prompt: text } : {}),
       ...(ctx.values.model ? { model: ctx.values.model } : {}),
       ...(ctx.values.effort ? { effort: ctx.values.effort } : {}),
+      ...(ctx.values.speed ? { speed: ctx.values.speed } : {}),
       ...(ctx.values.takeover ? { takeover: true } : {}),
     });
     return { data, text: format.resumed(data, ctx.paint) };

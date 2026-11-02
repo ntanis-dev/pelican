@@ -5,6 +5,7 @@ import { mkdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { Store } from "./store.js";
 import { Fleet } from "./fleet.js";
+import { ignoredNotifications } from "./codex.js";
 import { liveStates } from "./views.js";
 
 // Workspaces are separate fleets: each has its own folder, store, settings,
@@ -138,7 +139,7 @@ export class Workspaces extends EventEmitter {
       ...this.options,
     });
     await fleet.prune();
-    store.compact();
+    store.compact({ drop: ignoredNotifications });
     this.attach(record, fleet);
     return fleet;
   }

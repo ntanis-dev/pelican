@@ -57,6 +57,7 @@ export function jobRow(job, workspace) {
     status: job.status,
     model: job.model,
     effort: job.effort,
+    speed: job.speed ?? "standard",
     tokens: job.usage?.total?.totalTokens ?? 0,
     questions: job.pending.length,
     createdAt: job.createdAt,

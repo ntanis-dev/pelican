@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { CodexAccount } from "./account.js";
 import { codexLaunch } from "./cli-path.js";
+import { codexProtocol, incompatibility } from "./codex-protocol.js";
 import { runCommand, WindowsSandboxPreparation } from "./windows-sandbox.js";
 import { serviceState } from "./service.js";
 
@@ -38,6 +39,20 @@ export async function doctor(config, { platform = process.platform } = {}) {
     );
   } catch (error) {
     add("Codex CLI", false, error.message);
+  }
+  if (launch) {
+    const protocol = await codexProtocol(config);
+    add(
+      "Codex protocol",
+      ["verified", "unverified"].includes(protocol.state),
+      protocol.state === "verified"
+        ? "matches, and passed the live smoke test on this version"
+        : protocol.state === "unverified"
+          ? `matches the protocol Pelican relies on; not smoke-tested on this version yet (last verified: ${protocol.verifiedVersion ?? "never"}): run npm run smoke`
+          : protocol.state === "incompatible"
+            ? incompatibility(protocol)
+            : `could not check: ${protocol.error}`,
+    );
   }
   const account = new CodexAccount({ config });
   try {

@@ -3,6 +3,12 @@ import { z } from "zod";
 import { api, allStatuses, statusGroups } from "./api.js";
 import { callerSchema } from "./schema.js";
 import { CodexProcess } from "./codex.js";
+import {
+  codexProtocol,
+  incompatibility,
+  protocolNote,
+} from "./codex-protocol.js";
+import { checkModelChoice } from "./model-check.js";
 import { requestQueue } from "./request-queue.js";
 import { pelican } from "./fleet.js";
 import {
@@ -101,10 +107,25 @@ const failure = (statusCode, message) =>
 // and the folder it works in (cwd), which picks the workspace when none is
 // named.
 export class Gateway {
-  constructor(hub, { account, service = {}, onShutdown } = {}) {
+  constructor(
+    hub,
+    {
+      account,
+      service = {},
+      onShutdown,
+      checks = false,
+      protocol = () => codexProtocol(hub.config),
+    } = {},
+  ) {
     this.hub = hub;
     // Not this.account: that would hide the account() method.
     this.accountAdapter = account;
+    // The service checks the installed Codex's protocol and each agent's
+    // model, effort and speed against the account's models; in-process
+    // gateways (tests) leave Codex alone. codex is the last protocol check.
+    this.checks = checks;
+    this.protocol = protocol;
+    this.codex = null;
     this.service = {
       pid: process.pid,
       startedAt: new Date().toISOString(),
@@ -216,6 +237,36 @@ export class Gateway {
       throw failure(400, `${path} is relative; give an absolute path.`);
     return resolve(caller.cwd, path);
   }
+  // The installed Codex's protocol state for a call that starts agents: an
+  // incompatible Codex refuses it, and an unverified one comes back as a
+  // warning to pass on.
+  async codexWarning() {
+    if (!this.checks) return null;
+    this.codex = await this.protocol();
+    if (this.codex.state === "incompatible")
+      throw failure(503, incompatibility(this.codex));
+    return protocolNote(this.codex);
+  }
+  // The model's full id and the service tier for an agent's model, effort and
+  // speed. Without the model list (Codex unreachable) nothing is checked and
+  // Codex decides; only a fast speed then fails, in the fleet.
+  async checkChoice({ model, effort, speed, of }) {
+    if (!this.checks) return {};
+    const models = await this.models().catch(() => []);
+    if (!models.length) return {};
+    try {
+      return checkModelChoice(models, { model, effort, speed, of });
+    } catch (error) {
+      throw failure(400, error.message);
+    }
+  }
+  // At service start: the protocol check and the model list, so the first
+  // spawn does not wait for them.
+  async warm() {
+    if (!this.checks) return;
+    await this.codexWarning().catch(() => {});
+    await this.models().catch(() => {});
+  }
   status() {
     const workspaces = this.hub.list();
     const total = (key) => workspaces.reduce((sum, w) => sum + w[key], 0);
@@ -223,6 +274,7 @@ export class Gateway {
       service: {
         ...this.service,
         uptimeMs: Date.now() - Date.parse(this.service.startedAt),
+        ...(this.codex ? { codex: this.codex } : {}),
       },
       totals: {
         agents: total("agents"),
@@ -251,9 +303,17 @@ export class Gateway {
     this.runner.expire();
     return removed;
   }
-  settings({ workspace, ...changes }, caller) {
+  async settings({ workspace, ...changes }, caller) {
     const record = this.workspaceFor(caller, workspace);
     const fleet = this.hub.fleets.get(record.id);
+    if (changes.model !== undefined || changes.effort !== undefined) {
+      const { model } = await this.checkChoice({
+        model: changes.model ?? fleet.settings.model,
+        effort: changes.effort ?? fleet.settings.effort,
+        of: changes.model === undefined ? "The workspace's model" : undefined,
+      });
+      if (changes.model !== undefined && model) changes.model = model;
+    }
     const settings = fleet.updateSettings(changes, caller.as ?? "anonymous");
     return {
       workspace: record.id,
@@ -262,11 +322,26 @@ export class Gateway {
       settings,
     };
   }
+  // A brief's model, effort and speed checked against the account's models,
+  // with the model named by its full id; returns what the fleet needs.
+  async checkBrief(fleet, brief) {
+    const checked = await this.checkChoice({
+      model: brief.model ?? fleet.settings.model,
+      effort: brief.effort ?? fleet.settings.effort,
+      speed: brief.speed,
+      of: brief.model === undefined ? "The workspace's model" : undefined,
+    });
+    if (brief.model !== undefined && checked.model) brief.model = checked.model;
+    return { serviceTier: checked.serviceTier };
+  }
   async spawn({ workspace, ...brief }, caller) {
     brief.cwd = this.absolute(caller, brief.cwd);
     const record = this.workspaceFor(caller, workspace, [brief.cwd]);
-    const job = await this.hub.fleets.get(record.id).create(brief, caller.as);
-    return jobRow(job, record.id);
+    const fleet = this.hub.fleets.get(record.id);
+    const warning = await this.codexWarning();
+    const resolved = await this.checkBrief(fleet, brief);
+    const job = await fleet.create(brief, caller.as, resolved);
+    return { ...jobRow(job, record.id), ...(warning ? { warning } : {}) };
   }
   async batch({ workspace, jobs }, caller) {
     for (const job of jobs) job.cwd = this.absolute(caller, job.cwd);
@@ -275,10 +350,23 @@ export class Gateway {
       workspace,
       jobs.map((job) => job.cwd),
     );
-    const created = await this.hub.fleets
-      .get(record.id)
-      .createBatch(jobs, caller.as);
-    return created.map((job) => jobRow(job, record.id));
+    const fleet = this.hub.fleets.get(record.id);
+    const warning = await this.codexWarning();
+    const resolved = [];
+    for (const [index, job] of jobs.entries())
+      try {
+        resolved.push(await this.checkBrief(fleet, job));
+      } catch (error) {
+        throw Object.assign(
+          new Error(`Job ${job.key ?? index + 1}: ${error.message}`),
+          { statusCode: error.statusCode },
+        );
+      }
+    const created = await fleet.createBatch(jobs, caller.as, resolved);
+    return created.map((job) => ({
+      ...jobRow(job, record.id),
+      ...(warning ? { warning } : {}),
+    }));
   }
   get({ id }) {
     const { job, fleet, record } = this.hub.find(id);
@@ -382,11 +470,27 @@ export class Gateway {
       agent: jobRow(found.job, found.record.id),
     };
   }
-  resume({ id, takeover, ...overrides }, caller) {
+  async resume({ id, takeover, ...overrides }, caller) {
     const found = this.hub.find(id);
+    const warning = await this.codexWarning();
+    // A new model, effort or speed is checked like a brief's, before the
+    // agent changes hands.
+    if (overrides.model || overrides.effort || overrides.speed) {
+      const checked = await this.checkChoice({
+        model: overrides.model ?? found.job.model,
+        effort: overrides.effort ?? found.job.effort,
+        speed: overrides.speed ?? found.job.speed,
+        of: overrides.model ? undefined : `${found.job.agentName}'s model`,
+      });
+      if (overrides.model && checked.model) overrides.model = checked.model;
+      if (checked.serviceTier) overrides.serviceTier = checked.serviceTier;
+    }
     this.own(found, caller, takeover);
     const job = found.fleet.resume(found.job.id, overrides, caller.as);
-    return jobRow(job, found.record.id);
+    return {
+      ...jobRow(job, found.record.id),
+      ...(warning ? { warning } : {}),
+    };
   }
   async answer({ id, requestId, answer, takeover }, caller) {
     const found = this.hub.find(id);
@@ -632,6 +736,13 @@ export class Gateway {
   async models() {
     if (this.modelCache && Date.now() - this.modelCache.at < 300000)
       return this.modelCache.data;
+    // Spawns checking briefs at once share one read.
+    this.loadingModels ??= this.loadModels().finally(() => {
+      this.loadingModels = null;
+    });
+    return this.loadingModels;
+  }
+  async loadModels() {
     const proc = new CodexProcess({ bin: this.hub.config.codexBin });
     try {
       await proc.start();

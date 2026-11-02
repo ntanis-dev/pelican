@@ -4,7 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { isAbsolute, relative } from "node:path";
 import { Worker } from "node:worker_threads";
 import { z } from "zod";
-import { effortSchema } from "./schema.js";
+import { effortSchema, speedSchema } from "./schema.js";
 import { parseWorkflow } from "./workflow.js";
 import { liveStates, questionView } from "./views.js";
 import { pelican } from "./fleet.js";
@@ -70,6 +70,9 @@ const optionsSchema = z
     schema: z.record(z.string(), z.unknown()).optional(),
     model: z.string().trim().min(1).max(100).optional(),
     effort: effortSchema.optional(),
+    // Like priority, it changes how fast the work is done, not the work: a
+    // resume replays a call whose speed changed.
+    speed: speedSchema.optional(),
     name: z.string().trim().min(1).max(140).optional(),
     resources: z.array(z.string().min(1)).optional(),
     priority: z.number().int().min(-100).max(100).optional(),
@@ -787,6 +790,7 @@ export class Runner extends EventEmitter {
         ...(opts.resources ? { resources: opts.resources } : {}),
         ...(opts.model ? { model: opts.model } : {}),
         ...(opts.effort ? { effort: opts.effort } : {}),
+        ...(opts.speed ? { speed: opts.speed } : {}),
         ...(opts.schema ? { resultSchema: opts.schema } : {}),
         ...(opts.priority !== undefined ? { priority: opts.priority } : {}),
         workspace: run.workspace,

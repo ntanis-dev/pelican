@@ -15,11 +15,13 @@ import { requestSummary } from "./request-summary.js";
 import { approvalResponse } from "./approvals.js";
 import { CodexProcess, dynamicTools, toolResult } from "./codex.js";
 import { prepareAgentCodexHome } from "./codex-home.js";
+import { requireCompatibleCodex } from "./codex-protocol.js";
 import {
   briefSchema,
   defaultSettings,
   effortSchema,
   settingsSchema,
+  speedSchema,
   textSchema,
 } from "./schema.js";
 import { allocateName } from "./identity.js";
@@ -190,6 +192,7 @@ export class Fleet extends EventEmitter {
         new CodexProcess({
           bin: config.codexBin,
           cwd: job.cwd,
+          preflight: () => requireCompatibleCodex(config),
           prepareHome: () => prepareAgentCodexHome(config, job),
           prepareSandbox: async (home, signal) => {
             job.windowsSandbox = await this.windowsSandbox.prepare({
@@ -300,6 +303,12 @@ export class Fleet extends EventEmitter {
         throw new Error("Resource resolves outside cwd");
       resources.push(c);
     }
+    // The Fast tier's id comes from the model list, which the gateway reads.
+    const speed = brief.speed ?? "standard";
+    if (speed === "fast" && !extra.serviceTier)
+      throw new Error(
+        "Fast speed needs Codex's model list to find the model's Fast tier, and Pelican could not read it.",
+      );
     return {
       id: extra.id ?? randomUUID(),
       name: brief.name,
@@ -310,6 +319,8 @@ export class Fleet extends EventEmitter {
       priority: brief.priority,
       model: brief.model ?? this.settings.model,
       effort: brief.effort ?? this.settings.effort,
+      speed,
+      serviceTier: speed === "fast" ? extra.serviceTier : "default",
       resultSchema: brief.resultSchema ?? null,
       owner,
       status: "queued",
@@ -342,10 +353,12 @@ export class Fleet extends EventEmitter {
       plan: [],
     };
   }
-  async create(input, owner) {
-    return (await this.createBatch([input], owner))[0];
+  async create(input, owner, resolved) {
+    return (await this.createBatch([input], owner, resolved && [resolved]))[0];
   }
-  async createBatch(inputs, owner) {
+  // resolved holds, per input, what the gateway found in the model list: the
+  // Fast tier's serviceTier for a fast agent.
+  async createBatch(inputs, owner, resolved = []) {
     if (this.closing) throw failure(409, "Pelican is stopping.");
     owner = textSchema.parse(owner);
     if (!Array.isArray(inputs) || !inputs.length)
@@ -363,6 +376,7 @@ export class Fleet extends EventEmitter {
           (id) => keys.get(id) ?? id,
         );
         return this.prepare({ ...spec, dependsOn }, owner, {
+          ...resolved[index],
           id: keys.get(key ?? String(index + 1)),
         });
       }),
@@ -634,6 +648,8 @@ Do not change global Codex settings or read unrelated credentials. Never include
         ],
         model: job.model,
         effort: job.effort,
+        // Named on every turn, so the speed never depends on Codex's config.
+        serviceTier: job.serviceTier ?? "default",
         cwd: job.cwd,
         sandboxPolicy: turnSandbox(job.permissions, job.network),
         approvalPolicy: permissions.approvalPolicy,
@@ -649,6 +665,8 @@ Do not change global Codex settings or read unrelated credentials. Never include
     } catch (error) {
       release?.();
       release = null;
+      // A failure that a second start cannot fix (an incompatible Codex).
+      runtime.permanent = error.permanent === true;
       if (alive()) await this.finish(job, runtime, "failed", error.message);
     } finally {
       release?.();
@@ -1001,8 +1019,9 @@ Do not change global Codex settings or read unrelated credentials. Never include
     if (this.closing) throw failure(409, "Pelican is stopping.");
     if (this.active.has(id) || job.status === "queued")
       throw failure(409, "The agent is already running or queued.");
+    // serviceTier comes from the gateway, which resolves a fast speed's tier.
     for (const key of Object.keys(overrides))
-      if (!["prompt", "model", "effort"].includes(key))
+      if (!["prompt", "model", "effort", "speed", "serviceTier"].includes(key))
         throw new Error(`Unknown override: ${key}`);
     const prompt = textSchema.parse(
       overrides.prompt ??
@@ -1014,9 +1033,23 @@ Do not change global Codex settings or read unrelated credentials. Never include
     const effort = overrides.effort
       ? effortSchema.parse(overrides.effort)
       : job.effort;
+    const speed = overrides.speed
+      ? speedSchema.parse(overrides.speed)
+      : (job.speed ?? "standard");
+    const serviceTier =
+      speed === "fast"
+        ? (overrides.serviceTier ??
+          (job.speed === "fast" ? job.serviceTier : null))
+        : "default";
+    if (!serviceTier)
+      throw new Error(
+        "Fast speed needs Codex's model list to find the model's Fast tier, and Pelican could not read it.",
+      );
     Object.assign(job, {
       model,
       effort,
+      speed,
+      serviceTier,
       pendingPrompt: `${retry ? "Pelican" : `Assignment from ${by}`}:\n${prompt}`,
       status: "queued",
       queuedAt: stamp(),
@@ -1129,6 +1162,7 @@ Do not change global Codex settings or read unrelated credentials. Never include
     if (
       status === "failed" &&
       !runtime.threadReady &&
+      !runtime.permanent &&
       !job.startRetried &&
       !this.closing
     ) {

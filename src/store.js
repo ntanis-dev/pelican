@@ -317,10 +317,21 @@ export class Store {
     }
     return { removed, cutoff };
   }
-  compact() {
+  compact({ drop = [] } = {}) {
     // Only before dispatch at startup. VACUUM rewrites the entire database and
-    // must never block live worker heartbeats.
-    this.db.exec("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;");
+    // must never block live worker heartbeats. Events of the types in drop
+    // (notifications Pelican no longer receives) go first.
+    if (drop.length)
+      this.db
+        .prepare(
+          `DELETE FROM events WHERE type IN (${drop.map(() => "?").join(",")})`,
+        )
+        .run(...drop);
+    // VACUUM in WAL mode writes the whole database into the WAL, which keeps
+    // that size until it is truncated.
+    this.db.exec(
+      "PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE);",
+    );
   }
   cursor() {
     return this.db

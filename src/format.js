@@ -104,6 +104,15 @@ const row = (p, label, value, shorter = label) =>
 const asking = (a) =>
   Array.isArray(a.questions) ? a.questions.length : Number(a.questions) || 0;
 
+// The service's last check of the installed Codex, when it needs attention.
+const codexLine = (c) =>
+  c?.state === "unverified"
+    ? `Codex ${c.codexVersion} has not passed the live smoke test yet: run npm run smoke.`
+    : c?.state === "incompatible"
+      ? `Codex ${c.codexVersion ?? ""} changed the protocol Pelican relies on, so no agent starts: ${c.problems.join("; ")}.`
+      : c?.state === "unknown"
+        ? `Pelican could not check the installed Codex: ${c.error}`
+        : "";
 export function status(s, p = plain) {
   const lines = p.pretty
     ? [
@@ -114,6 +123,8 @@ export function status(s, p = plain) {
         `Pelican is running: process ${s.service.pid}${s.service.url ? ` at ${s.service.url}` : ""}, up ${duration(s.service.uptimeMs)}${s.service.idleMinutes ? `; it exits after ${s.service.idleMinutes} min with nothing running or asked for` : ""}.`,
         `${s.totals.working} working, ${s.totals.queued} queued, ${s.totals.questions} open question${s.totals.questions === 1 ? "" : "s"}, ${s.totals.agents} agents in all.`,
       ];
+  const codex = codexLine(s.service.codex);
+  if (codex) lines.push(p.pretty ? `  ${p.warn(codex)}` : codex);
   if (!s.workspaces.length)
     lines.push(
       p.pretty
@@ -161,7 +172,8 @@ const agentLine = (a, p = plain) =>
 export function spawned(rows, p = plain) {
   const list = [rows].flat();
   const follow = `pelican wait ${list.map((a) => short(a.id)).join(" ")}`;
-  return `${list.map((a) => p.check(`Spawned ${agentLine(a, p)}`)).join("\n")}\n${p.muted(`Wait for ${list.length === 1 ? "it" : "them"}:`)} ${p.accent(follow)}`;
+  const warning = list.find((a) => a.warning)?.warning;
+  return `${list.map((a) => p.check(`Spawned ${agentLine(a, p)}`)).join("\n")}\n${p.muted(`Wait for ${list.length === 1 ? "it" : "them"}:`)} ${p.accent(follow)}${warning ? `\n${p.warn(warning)}` : ""}`;
 }
 export function list(rows, p = plain) {
   if (!rows.length) return p.muted("No agents.");
@@ -247,8 +259,8 @@ export function get(d, p = plain) {
       p,
       "model",
       p.pretty
-        ? `${d.model} (${d.effort})${dot(p)}network ${network}${dot(p)}${tokens(d.tokens)} tokens${dot(p)}attempt ${d.attempts}`
-        : `${d.model} (${d.effort}), network ${network}, ${tokens(d.tokens)} tokens, attempt ${d.attempts}`,
+        ? `${d.model} (${d.effort}${d.speed === "fast" ? ", fast" : ""})${dot(p)}network ${network}${dot(p)}${tokens(d.tokens)} tokens${dot(p)}attempt ${d.attempts}`
+        : `${d.model} (${d.effort}${d.speed === "fast" ? ", fast" : ""}), network ${network}, ${tokens(d.tokens)} tokens, attempt ${d.attempts}`,
     ),
     row(p, "cwd", p.safe(d.cwd)),
     row(
@@ -338,7 +350,8 @@ export const message = (m, p = plain) =>
       }[m.delivery] ?? m.delivery
     }`,
   );
-export const resumed = (a, p = plain) => p.check(`Resumed ${agentLine(a, p)}`);
+export const resumed = (a, p = plain) =>
+  `${p.check(`Resumed ${agentLine(a, p)}`)}${a.warning ? `\n${p.warn(a.warning)}` : ""}`;
 export const answered = (a, p = plain) =>
   p.check(
     `Answered ${short(a.answered)}; ${p.bold(a.agent.agentName)} is ${p.status(a.agent.status)}.`,

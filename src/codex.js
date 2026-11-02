@@ -6,12 +6,22 @@ import { join } from "node:path";
 import { ProtocolPump } from "./protocol-pump.js";
 import { heartbeatTimeoutMs, heartbeatRecoveryMs } from "./worker-lease.js";
 
+// Notifications nothing in Pelican reads, which Codex therefore does not send.
+// turn/diff/updated repeats the turn's whole diff after every edit: journaled
+// raw, it was most of a busy workspace's history.
+export const ignoredNotifications = [
+  "turn/diff/updated",
+  "turn/moderationMetadata",
+  "account/rateLimits/updated",
+];
+
 export class CodexProcess extends EventEmitter {
   constructor({
     bin = "codex",
     args,
     cwd,
     env,
+    preflight,
     prepareHome,
     prepareSandbox,
     timeoutMs = 45000,
@@ -24,6 +34,7 @@ export class CodexProcess extends EventEmitter {
       args,
       cwd,
       env,
+      preflight,
       prepareHome,
       prepareSandbox,
       timeoutMs,
@@ -37,8 +48,18 @@ export class CodexProcess extends EventEmitter {
     this.preparationAbort = new AbortController();
   }
   async start() {
-    const { bin, args, cwd, env, prepareHome, prepareSandbox, timeoutMs } =
-      this.options;
+    const {
+      bin,
+      args,
+      cwd,
+      env,
+      preflight,
+      prepareHome,
+      prepareSandbox,
+      timeoutMs,
+    } = this.options;
+    // A check that must pass before Codex starts (the protocol check).
+    await preflight?.();
     const privateHome = prepareHome?.();
     this.preparation = prepareSandbox?.(
       privateHome,
@@ -176,7 +197,10 @@ export class CodexProcess extends EventEmitter {
       "initialize",
       {
         clientInfo: { name: "pelican", title: "Pelican", version: "0.1.0" },
-        capabilities: { experimentalApi: true },
+        capabilities: {
+          experimentalApi: true,
+          optOutNotificationMethods: ignoredNotifications,
+        },
       },
       timeoutMs,
     );

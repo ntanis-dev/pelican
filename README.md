@@ -216,6 +216,15 @@ coloured at a terminal and plain text when piped.
   for its owner, and directing another's agent takes an explicit takeover.
 - **There are no budgets.** Agents run until their work ends or someone stops
   one.
+- **Briefs are checked before they queue.** The model (a full id or a short
+  name such as `sol`), the effort and the speed must be ones the Codex account
+  offers. `speed: "fast"` runs an agent on the model's Fast tier, at higher
+  usage; agents run at standard speed otherwise.
+- **Pelican checks the Codex it runs.** It holds the installed Codex's
+  app-server schema to the parts Pelican relies on, again after every Codex
+  update. A Codex that changed them starts no agents; one that matches but has
+  not passed `npm run smoke` yet works, and `spawn`, `status` and `doctor` say
+  so until the smoke test passes.
 - **Pelican runs only when needed.** The first call starts it, and it exits a
   few minutes after nothing is running or asked for.
 
@@ -244,5 +253,6 @@ To work on Pelican itself:
 ```powershell
 npm test         # the offline suite, with fake Codex workers
 npm run check    # syntax-checks every script
-npm run smoke    # live: runs one real agent (uses your allowance)
+npm run smoke    # live: runs one real agent (uses your allowance) and, when
+                 # it passes, records the Codex version as verified
 ```

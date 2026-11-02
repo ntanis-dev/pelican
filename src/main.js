@@ -71,6 +71,7 @@ async function stop() {
 }
 const gateway = new Gateway(workspaces, {
   account,
+  checks: true,
   service: { instance: nonce, idleMinutes: config.idleMinutes },
   onShutdown: () => void stop().then(() => process.exit(0)),
 });
@@ -95,6 +96,7 @@ try {
   workspaces.schedule();
   account.watchUsage();
   maintain();
+  void gateway.warm();
   idle = watchIdle({
     gateway,
     idleMs: config.idleMinutes * 60000,

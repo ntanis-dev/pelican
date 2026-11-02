@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { briefSchema, effortSchema, settingsSchema } from "./schema.js";
+import {
+  briefSchema,
+  effortSchema,
+  settingsSchema,
+  speedSchema,
+} from "./schema.js";
 
 // Every operation Pelican offers, once. The gateway implements them; the HTTP
 // RPC, the MCP server, the CLI and the client proxy expose them with these
@@ -106,7 +111,7 @@ export const api = {
   spawn: {
     caller: true,
     description:
-      "Start an agent with a brief: name, prompt (the goal, the files it owns, how to check the result, what to report) and optionally resources (paths it reserves; default the whole cwd, [] for read-only work), model, effort, resultSchema (JSON Schema for its structured result), dependsOn, priority, cwd. Returns at once; wait for the result.",
+      "Start an agent with a brief: name, prompt (the goal, the files it owns, how to check the result, what to report) and optionally resources (paths it reserves; default the whole cwd, [] for read-only work), model (a full id from models or a short name such as sol), effort (one the model supports), speed (fast runs on the model's Fast tier at higher usage: only when asked for), resultSchema (JSON Schema for its structured result), dependsOn, priority, cwd. Returns at once; wait for the result.",
     params: briefSchema.extend({ workspace }).strict(),
   },
   batch: {
@@ -159,6 +164,7 @@ export const api = {
       prompt: z.string().trim().min(1).max(150000).optional(),
       model: z.string().trim().min(1).max(100).optional(),
       effort: effortSchema.optional(),
+      speed: speedSchema.optional(),
       takeover,
     }),
   },

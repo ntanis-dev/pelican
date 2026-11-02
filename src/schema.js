@@ -10,6 +10,9 @@ export const effortSchema = z.enum([
   "max",
   "ultra",
 ]);
+// fast runs an agent's turns on the model's Fast tier: quicker, at higher
+// usage. Standard unless asked for.
+export const speedSchema = z.enum(["standard", "fast"]);
 // What a caller gives an agent. Sandbox and approvals are not part of it:
 // every agent runs in Codex auto mode (worker-permissions.js), with network
 // access as its workspace's setting says. Model and effort default to the
@@ -22,6 +25,7 @@ export const briefSchema = z
     resources: z.array(z.string().min(1)).optional(),
     model: z.string().trim().min(1).max(100).optional(),
     effort: effortSchema.optional(),
+    speed: speedSchema.optional(),
     resultSchema: z.record(z.string(), z.unknown()).optional(),
     dependsOn: z.array(z.string().min(1)).default([]),
     priority: z.number().int().min(-100).max(100).default(0),

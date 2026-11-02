@@ -1,11 +1,14 @@
 // An explicit live integration test: it spawns one real Codex agent through
 // the running service, the way any orchestrator does, and waits for its
-// structured result. It uses the signed-in Codex allowance.
+// structured result. It uses the signed-in Codex allowance. A pass records
+// the Codex version it ran on as verified (see src/codex-protocol.js).
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 import { connect } from "../src/client.js";
+import { loadConfig } from "../src/config.js";
+import { recordVerified } from "../src/codex-protocol.js";
 
 const cwd = resolve(".cache", "smoke-workspace");
 const target = resolve(cwd, "smoke.txt");
@@ -39,6 +42,15 @@ try {
   console.log(
     `Live smoke test passed: ${done.agentName} ran end to end and returned ${JSON.stringify(done.result)}.`,
   );
+  // The version the service checked when it started the agent.
+  const { codex } = (await pelican.status()).service;
+  if (codex?.codexVersion && codex.state !== "incompatible") {
+    await recordVerified(await loadConfig(), codex.codexVersion);
+    console.log(`Recorded ${codex.codexVersion} as verified.`);
+  } else
+    console.log(
+      `The service did not report a Codex version (${codex?.state ?? "no check"}); nothing recorded.`,
+    );
 } finally {
   await pelican.stop({ all: true, workspace: workspace.id }).catch(() => {});
   await pelican.removeWorkspace(workspace.id).catch((error) => {
