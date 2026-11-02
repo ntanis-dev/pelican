@@ -107,6 +107,18 @@ export function jobDetail(job, workspace, { done } = {}) {
     report: job.report,
     summary: job.summary,
     error: job.error,
+    ...handedOver(job),
+  };
+}
+
+// What wait and get add when follow-ups came into play: what the assignments
+// before them handed back, and follow-ups still waiting for the agent's next
+// assignment (its last turn ended before taking them).
+function handedOver(job) {
+  const waiting = job.followups?.length ?? 0;
+  return {
+    ...(job.earlier?.length ? { earlier: job.earlier } : {}),
+    ...(waiting ? { followupsWaiting: waiting } : {}),
   };
 }
 
@@ -125,6 +137,7 @@ export function resultView(job, workspace, { done } = {}) {
     summary: job.summary,
     error: job.error,
     questions: job.pending.map((q) => questionView(job, q)),
+    ...handedOver(job),
   };
 }
 

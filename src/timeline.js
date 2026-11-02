@@ -125,7 +125,10 @@ function words(event, workspace) {
         clip(d.report),
       ];
     case "job.finished":
-      return [`${agent} ${d.status}`, clip(d.error, 600)];
+      return [
+        `${agent} ${d.status}${d.followupsWaiting ? `; ${d.followupsWaiting} follow-up${d.followupsWaiting === 1 ? " waits" : "s wait"} for its next assignment` : ""}`,
+        clip(d.error, 600),
+      ];
     case "job.restarting":
       return [
         `${agent} crashed while starting; Pelican starts it once more`,

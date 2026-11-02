@@ -118,6 +118,16 @@ const safeText = (text) =>
       "[redacted]",
     );
 const safe = (data) => JSON.parse(safeText(JSON.stringify(data ?? null)));
+// What a finished assignment handed back, kept when a follow-up takes over.
+const keptEarlier = 20;
+const outcome = (job) => ({
+  status: job.status,
+  finishedAt: job.finishedAt,
+  summary: job.summary,
+  report: job.report,
+  result: job.result,
+  ...(job.resultSchema ? { resultValid: job.resultValid } : {}),
+});
 const overlaps = (a, b) =>
   a === b || a.startsWith(b + sep) || b.startsWith(a + sep);
 const pick = (object, keys) =>
@@ -456,6 +466,7 @@ export class Fleet extends EventEmitter {
         messages: [],
         notes: [],
         followups: [],
+        earlier: [],
         pending: [],
         plan: [],
         summary: "",
@@ -1014,7 +1025,9 @@ Do not change global Codex settings or read unrelated credentials. Never include
     await this.steer(job, runtime, mails);
     this.save(job);
   }
-  resume(id, overrides = {}, by, { retry = false } = {}) {
+  // retry is Pelican's automatic result retry; followup is a queued follow-up
+  // taking over from the assignment that just completed.
+  resume(id, overrides = {}, by, { retry = false, followup = false } = {}) {
     const job = this.get(id);
     if (this.closing) throw failure(409, "Pelican is stopping.");
     if (this.active.has(id) || job.status === "queued")
@@ -1045,21 +1058,39 @@ Do not change global Codex settings or read unrelated credentials. Never include
       throw new Error(
         "Fast speed needs Codex's model list to find the model's Fast tier, and Pelican could not read it.",
       );
+    // A follow-up the agent's last turn ended before taking (it failed or was
+    // stopped) comes with the next assignment given to it.
+    const waiting = retry || followup ? [] : job.followups.splice(0);
+    for (const mail of job.messages)
+      if (waiting.some((f) => f.id === mail.id)) mail.deliveredAt = stamp();
+    const handedBack = followup ? outcome(job) : null;
     Object.assign(job, {
       model,
       effort,
       speed,
       serviceTier,
-      pendingPrompt: `${retry ? "Pelican" : `Assignment from ${by}`}:\n${prompt}`,
+      pendingPrompt: [
+        `${retry ? "Pelican" : `Assignment from ${by}`}:\n${prompt}`,
+        ...waiting.map(
+          (f) =>
+            `Follow-up from ${f.by}, sent before your last turn ended:\n${f.text}`,
+        ),
+      ].join("\n\n"),
       status: "queued",
       queuedAt: stamp(),
       error: null,
       pending: [],
       finishedAt: null,
     });
-    // A new assignment reports again; the automatic retry keeps its count.
+    // A new assignment reports again; the automatic retry keeps its count. A
+    // follow-up keeps what the assignment before it handed back in earlier,
+    // which wait and get return beside the new result; an assignment given
+    // directly starts earlier over.
     if (!retry)
       Object.assign(job, {
+        earlier: handedBack
+          ? [...(job.earlier ?? []), handedBack].slice(-keptEarlier)
+          : [],
         summary: "",
         report: "",
         result: null,
@@ -1248,16 +1279,25 @@ Do not change global Codex settings or read unrelated credentials. Never include
       );
       return;
     }
+    // Follow-ups run in turn after a completed assignment. After any other
+    // end they wait for the agent's next assignment (resume).
     const followup =
       status === "completed" && !this.closing ? job.followups.shift() : null;
-    if (status !== "completed") job.followups = [];
     if (followup) {
       for (const mail of job.messages)
         if (mail.id === followup.id) mail.deliveredAt = stamp();
-      this.resume(job.id, { prompt: followup.text }, followup.by);
+      this.resume(job.id, { prompt: followup.text }, followup.by, {
+        followup: true,
+      });
       return;
     }
-    this.save(job, "job.finished");
+    this.save(
+      job,
+      "job.finished",
+      job.followups.length
+        ? { followupsWaiting: job.followups.length }
+        : undefined,
+    );
     this.schedule();
   }
   // Journal entries after a cursor; with timeoutMs, waits for the next one.
